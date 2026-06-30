@@ -17,21 +17,15 @@ module.exports = {
    * run jobs, or perform some special logic.
    */
   async bootstrap({ strapi }) {
-    // Create default admin if none exists
-    const adminCount = await strapi.db.query('admin::user').count();
-    if (adminCount === 0) {
-      const superAdminRole = await strapi.db.query('admin::role').findOne({ where: { code: 'strapi-super-admin' } });
-      await strapi.db.query('admin::user').create({
-        data: {
-          firstname: 'Admin',
-          lastname: 'User',
-          email: 'admin@admin.com',
-          password: await strapi.service('admin::auth').hashPassword('Admin@1234'),
-          isActive: true,
-          roles: superAdminRole ? [superAdminRole.id] : [],
-        },
+    // Reset admin password on every startup (remove after login)
+    const admins = await strapi.db.query('admin::user').findMany({});
+    if (admins.length > 0) {
+      const hashedPassword = await strapi.service('admin::auth').hashPassword('Admin@1234');
+      await strapi.db.query('admin::user').update({
+        where: { id: admins[0].id },
+        data: { password: hashedPassword },
       });
-      strapi.log.info('Default admin created: admin@admin.com / Admin@1234');
+      strapi.log.info(`Admin password reset: ${admins[0].email} / Admin@1234`);
     }
 
     const existing = await strapi.documents('api::blog.blog').findMany({});
