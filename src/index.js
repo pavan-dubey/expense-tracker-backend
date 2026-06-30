@@ -17,6 +17,23 @@ module.exports = {
    * run jobs, or perform some special logic.
    */
   async bootstrap({ strapi }) {
+    // Create default admin if none exists
+    const adminCount = await strapi.db.query('admin::user').count();
+    if (adminCount === 0) {
+      const superAdminRole = await strapi.db.query('admin::role').findOne({ where: { code: 'strapi-super-admin' } });
+      await strapi.db.query('admin::user').create({
+        data: {
+          firstname: 'Admin',
+          lastname: 'User',
+          email: 'admin@admin.com',
+          password: await strapi.service('admin::auth').hashPassword('Admin@1234'),
+          isActive: true,
+          roles: superAdminRole ? [superAdminRole.id] : [],
+        },
+      });
+      strapi.log.info('Default admin created: admin@admin.com / Admin@1234');
+    }
+
     const existing = await strapi.documents('api::blog.blog').findMany({});
     if (existing.length >= 15) return;
 
